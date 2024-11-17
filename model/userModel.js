@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
-const bcrypt = require('bcryptjs');
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
@@ -8,25 +9,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Please enter your name"],
     },
-    firstName: {
-      type: String,
-      required: [false],
-    },
-    lastName: {
-      type: String,
-      required: [false],
-    },
-    dob: {
-      type: Date,
-      required: [false],
-    },
-    age: {
-      type: Number,
-      required: [false],
-    },
+    firstName: { type: String },
+    lastName: { type: String },
+    dob: { type: Date },
+    age: { type: Number },
     shortDescription: {
       type: String,
-      required: [false],
       maxlength: [50, "Should not be greater than 50 characters"],
     },
     email: {
@@ -39,20 +27,19 @@ const userSchema = new mongoose.Schema(
     photo: String,
     role: {
       type: String,
-      enum: ["user", "admin","seller"],
+      enum: ["user", "admin", "seller"],
       default: "user",
     },
     password: {
       type: String,
       required: [true, "Please provide a password"],
       minlength: [8, "Password must be at least 8 characters"],
-      select: false, // Ensure password is not returned in query results
+      select: false,
     },
     passwordconfirm: {
       type: String,
       required: [true, "Please confirm your password"],
       validate: {
-        // Only runs on CREATE and SAVE, not on UPDATE
         validator: function (el) {
           return el === this.password;
         },
@@ -66,37 +53,34 @@ const userSchema = new mongoose.Schema(
         ref: "Tour",
       },
     ],
+    passwordChangedAt: Date,
+    passwordResetToken: String,
+    passwordResetExpires: Date,
   },
   { timestamps: true }
 );
 
-// Pre-save middleware to hash the password
-userSchema.pre('save', async function (next) {
-  // Only run this function if password was actually modified
-  if (!this.isModified('password')) return next();
+userSchema.virtual("fullName").get(function () {
+  return `${this.firstName} ${this.lastName}`;
+});
 
-  // Hash the password with cost of 12
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 12);
-
-  // Delete passwordConfirm field
   this.passwordconfirm = undefined;
+  if (!this.isNew) this.passwordChangedAt = Date.now() - 1000;
   next();
 });
 
-// Pre 'findOneAndUpdate' middleware to hash the password if updated
-userSchema.pre('findOneAndUpdate', async function (next) {
+userSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate();
-
-  // Only hash password if it is being updated
   if (update.password) {
     update.password = await bcrypt.hash(update.password, 12);
-    update.passwordconfirm = undefined; // No need to store passwordconfirm
+    update.passwordconfirm = undefined;
   }
-
   next();
 });
 
-// Instance method to check if the provided password is correct
 userSchema.methods.correctPassword = async function (candidatePassword, userPassword) {
   return await bcrypt.compare(candidatePassword, userPassword);
 };
@@ -108,5 +92,13 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   }
   return false;
 };
+
+userSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  this.passwordResetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  return resetToken;
+};
+
 const User = mongoose.model("User", userSchema);
 module.exports = User;

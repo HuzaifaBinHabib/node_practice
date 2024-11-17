@@ -1,3 +1,7 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+
 const User = require("../model/userModel");
 const jwt = require("jsonwebtoken");
 const { promisify } = require("util");
@@ -175,4 +179,71 @@ const restrictToOwner = () => {
 };
 
 
-module.exports = { signin, signup, protect ,restrictToAdmin,restrictToAdmin_Seller,restrictToOwner,logout};
+// Nodemailer transporter setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // Replace with your email service
+  auth: {
+    user: 'your_email@gmail.com', // Replace with your email
+    pass: 'your_email_password', // Replace with app-specific password if required
+  },
+});
+
+// Forgot password controller
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'No user found with this email',
+      });
+    }
+
+    // Generate a random token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = bcrypt.hashSync(resetToken, 10);
+
+    // Save the hashed token and expiry in the user's document
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // Token valid for 10 minutes
+    await user.save();
+
+    // Construct reset URL
+    const resetURL = `${req.protocol}://${req.get(
+      'host'
+    )}/api/v1/users/resetPassword/${resetToken}`;
+
+    // Send reset email
+    const message = `
+      <h1>Password Reset Request</h1>
+      <p>You requested a password reset. Click the link below to reset your password:</p>
+      <a href="${resetURL}" target="_blank">${resetURL}</a>
+      <p>If you did not request this, please ignore this email.</p>
+    `;
+
+    await transporter.sendMail({
+      from: 'your_email@gmail.com', // Replace with your email
+      to: email,
+      subject: 'Password Reset Request',
+      html: message,
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Password reset link sent to your email',
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'fail',
+      message: err.message,
+    });
+  }
+};
+
+
+
+
+module.exports = { signin, signup, protect ,restrictToAdmin,restrictToAdmin_Seller,restrictToOwner,logout,forgotPassword};
