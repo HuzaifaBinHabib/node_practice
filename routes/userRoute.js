@@ -9,7 +9,7 @@ const {
       getUserbyemail,
       getUserbyText
     } = require('../controlers/userController')
-const {protect,restrictToAdmin,restrictToOwner,forgotPassword} = require('../controlers/authController')
+const {protect,restrictToAdmin,restrictToOwner,forgotPassword,resetPassword} = require('../controlers/authController')
 
 router
     .route('/')
@@ -25,10 +25,14 @@ router
 router
     .route('/:email')
     .get(protect,restrictToAdmin(),getUserbyemail)
-    
+
 router
   .route('/forgotPassword')
   .post(forgotPassword);
+
+router
+  .route('/resetPassword/:token')
+  .patch(resetPassword);
 
 router
     .route('/:text')

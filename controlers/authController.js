@@ -181,10 +181,11 @@ const restrictToOwner = () => {
 
 // Nodemailer transporter setup
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // Replace with your email service
+  host: process.env.NODEMAILER_HOST,
+  port: process.env.NODEMAILER_PORT,
   auth: {
-    user: 'your_email@gmail.com', // Replace with your email
-    pass: 'your_email_password', // Replace with app-specific password if required
+    user: process.env.NODEMAILER_EMAIL, // Replace with your email
+    pass: process.env.NODEMAILER_PASSWORD, // Replace with app-specific password if required
   },
 });
 
@@ -208,24 +209,23 @@ const forgotPassword = async (req, res) => {
 
     // Save the hashed token and expiry in the user's document
     user.passwordResetToken = hashedToken;
-    user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // Token valid for 10 minutes
+    user.passwordResetExpires = new Date(Date.now() + 10 * 1000) // Token valid for 1 day
     await user.save();
 
     // Construct reset URL
-    const resetURL = `${req.protocol}://${req.get(
-      'host'
-    )}/api/v1/users/resetPassword/${resetToken}`;
+    const resetURL = `${req.protocol}://${req.get('host')}/api/v1/users/resetPassword/${resetToken}`;
 
     // Send reset email
     const message = `
       <h1>Password Reset Request</h1>
-      <p>You requested a password reset. Click the link below to reset your password:</p>
-      <a href="${resetURL}" target="_blank">${resetURL}</a>
+      <p>You requested to reset password</p>
+      <h4>Tokken : ${resetToken}</h4>
       <p>If you did not request this, please ignore this email.</p>
-    `;
+      `;
+      // <p>Click the link below to reset your password:</p>
 
     await transporter.sendMail({
-      from: 'your_email@gmail.com', // Replace with your email
+      from: 'ME&Tours@gmail.com', // Replace with your email
       to: email,
       subject: 'Password Reset Request',
       html: message,
@@ -236,6 +236,56 @@ const forgotPassword = async (req, res) => {
       message: 'Password reset link sent to your email',
     });
   } catch (err) {
+    console.error('Error in forgotPassword:', err.message);
+    res.status(500).json({
+      status: 'fail',
+      message: err.message,
+    });
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { resetToken } = req.params;
+    const { password } = req.body;
+
+    // Find user by the reset token and ensure it is still valid (check if the token hasn't expired)
+    const user = await User.findOne({
+      passwordResetToken: resetToken,
+      passwordResetExpires: { $gt: Date.now() }, // Token must still be valid
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid or expired reset token',
+      });
+    }
+
+    // Compare the provided reset token with the hashed token in the DB
+    const isTokenValid = bcrypt.compareSync(resetToken, user.passwordResetToken);
+    if (!isTokenValid) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid reset token',
+      });
+    }
+
+    // Hash the new password before saving it
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update user password
+    user.password = hashedPassword;
+    user.passwordResetToken = undefined; // Remove the reset token after use
+    user.passwordResetExpires = undefined; // Clear the expiration
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Password has been successfully reset',
+    });
+  } catch (err) {
+    console.error('Error in resetPassword:', err.message);
     res.status(500).json({
       status: 'fail',
       message: err.message,
@@ -246,4 +296,4 @@ const forgotPassword = async (req, res) => {
 
 
 
-module.exports = { signin, signup, protect ,restrictToAdmin,restrictToAdmin_Seller,restrictToOwner,logout,forgotPassword};
+module.exports = { signin, signup, protect ,restrictToAdmin,restrictToAdmin_Seller,restrictToOwner,logout,forgotPassword,resetPassword};

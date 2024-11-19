@@ -73,7 +73,7 @@ app.get('/api/products', (req, res) => {
 // 3) ROUTES
 app.use('/', homeRoute);
 app.use('/api/v1/tour', toursRoute);
-app.use('/api/v1/user', usersRoute);
+app.use('/api/v1/users', usersRoute);
 app.use('/api/v1/auth', authsRoute);
 app.use('/api/v1/booking', bookingRoute);
 app.use('/api/v1/product', productRoute);
