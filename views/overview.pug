@@ -1,8 +1,38 @@
 doctype html
 html(lang="en")
   head
-    title= title
-    link(rel="stylesheet" href="/css/style.css")
+    title Picture and Redirect Example
+    style.
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background-color: #f0f2f5;
+        text-align: center;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+        margin-bottom: 20px;
+        border: 2px solid #4caf50;
+        border-radius: 8px;
+      }
+
+      .success-message {
+        color: #4caf50;
+        font-size: 1.2em;
+      }
   body
-    h1= message
-    h3 HElooo Every ONE oF Onces
+    div
+      img(src="https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnhoemk3N3lzeTF1NGd2dnV1NzQ5MjVjN3gxYmZoaHB4aWN4cmtldiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/QJ4Hm8oJgMJIqFAuVc/giphy.webp" alt="Picture Example")
+      h3.success-message Successfully Done
+
+    script.
+      // Redirect after displaying the image and message
+      setTimeout(() => {
+        window.location.href = "http://localhost:3000/home";
+      }, 3000); // Redirect after 3 seconds

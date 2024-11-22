@@ -187,9 +187,12 @@ const homepage = async (req, res) => {
 const paysuccess = async (req, res) => {
   res.status(200).render("overview", {
     title: "Payment Page",
-    message: "Payment Successfull",
+    message: "Payment Successful",
+    redirectUrl: "/home", // URL to redirect after 5 seconds
   });
 };
+
+
 
 module.exports = {
   homepage,

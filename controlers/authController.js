@@ -6,6 +6,25 @@ const User = require("../model/userModel");
 const jwt = require("jsonwebtoken");
 const { promisify } = require("util");
 
+const authenticateUser = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ status: 'fail', message: 'Unauthorized access' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id);
+    if (!req.user) {
+      throw new Error();
+    }
+    next();
+  } catch (err) {
+    res.status(401).json({ status: 'fail', message: 'Unauthorized access' });
+  }
+};
+
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
@@ -93,7 +112,7 @@ const protect = async (req, res, next) => {
       });
     }
 
-    req.user = freshUser;
+    req.user = decoded; // Set the userId to the req object
     next();
   } catch (err) {
     res.status(400).json({
@@ -103,6 +122,7 @@ const protect = async (req, res, next) => {
     });
   }
 };
+
 const signin = async (req, res) => {
   const { email, password } = req.body;
 
@@ -296,4 +316,4 @@ const resetPassword = async (req, res, next) => {
 
 
 
-module.exports = { signin, signup, protect ,restrictToAdmin,restrictToAdmin_Seller,restrictToOwner,logout,forgotPassword,resetPassword};
+module.exports = { authenticateUser,signin, signup, protect ,restrictToAdmin,restrictToAdmin_Seller,restrictToOwner,logout,forgotPassword,resetPassword};

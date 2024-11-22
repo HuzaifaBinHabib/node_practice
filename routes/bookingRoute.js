@@ -10,25 +10,40 @@ const {
 
 const {protect,
     restrictToAdmin,
-    restrictToOwner
+    restrictToOwner,
+    authenticateUser
 } = require('../controlers/authController')
-const {addToCart
+const {  addToCart,
+    getCartItems,
+    removeFromCart
 } = require('../controlers/cartController')
 
 router
 .route('/checkout-session-tour/:id')
-.get(protect,getCheckoutSessionTour)
+.get(getCheckoutSessionTour)
 
 router
 .route('/checkout-session-product/:id')
-.get(protect,getCheckoutSessionProduct)
+.post(getCheckoutSessionProduct)
 router
 .route('/checkout-session')
 .get(protect,getCheckoutSession)
 
-router
-.route('/add-to-cart')
-.post(protect,addToCart)
+// cartRoutes.js
+
+
+
+// Add product to cart
+router.post('/add-to-cart', addToCart);
+router.get('/add-to-cart', getCartItems);
+
+// // Update cart item
+// router.patch('add-to-cart/:productId', updateCartItem);
+
+// // Remove product from cart
+// router.delete('/add-to-cart/:productId', removeFromCart);
+
+
 
 
 module.exports = router;
