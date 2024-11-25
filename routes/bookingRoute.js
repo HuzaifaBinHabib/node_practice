@@ -27,7 +27,7 @@ router
 .post(getCheckoutSessionProduct)
 router
 .route('/checkout-session')
-.get(protect,getCheckoutSession)
+.get(authenticateUser,getCheckoutSession)
 
 // cartRoutes.js
 
@@ -41,8 +41,7 @@ router.get('/add-to-cart', getCartItems);
 // router.patch('add-to-cart/:productId', updateCartItem);
 
 // // Remove product from cart
-// router.delete('/add-to-cart/:productId', removeFromCart);
-
+router.delete('/remove-from-cart/:id', removeFromCart);
 
 
 

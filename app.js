@@ -58,15 +58,7 @@ app.set('views', path.join(__dirname, 'views'));
 
 // 2) ROUTE HANDLERS
 // (No additional route handlers here yet)
-app.get('/api/products', (req, res) => {
-  console.log('Products endpoint was called');
-  const products = [
-    { id: 1, name: "Product 1", price: 29.99 },
-    { id: 2, name: "Product 2", price: 19.99 },
-    { id: 3, name: "Product 3", price: 9.99 }
-  ];
-  res.json(products);
-});
+
 
 
 

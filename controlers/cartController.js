@@ -1,90 +1,61 @@
-const Product = require('../model/productModel'); // Assuming you have a Product model
-const Tour = require('../model/tourModel'); // Assuming you have a Product model
-const Cart = require('../model/addtocartModel'); // Your Cart model
+const Product = require('../model/productModel');
+const Tour = require('../model/tourModel');
+const Cart = require('../model/addtocartModel');
+const User = require('../model/userModel');
 
-// Add to cart API
-// const addToCart = async (req, res) => {
-//   const { tourId, quantity } = req.body;
-
-//   // Validate request body
-//   if (!tourId || !quantity) {
-//     return res.status(400).json({ error: 'ProductId and quantity are required' });
-//   }
-
-//   try {
-//     // Fetch product details using productId
-//     const product = await Product.findById(productId);
-//     const tour = await Tour.findById(tourId);
-
-//     if (!tour) {
-//       return res.status(404).json({ error: 'Product not found' });
-//     }
-//     if (!product) {
-//       return res.status(404).json({ error: 'Product not found' });
-//     }
-
-
-//     // Create a cart item with product details
-//     const cartItem = new Cart({
-//       tourId,
-//       quantity,
-//       tourDetails: {
-//         name: tour.name,
-//         price: tour.price,
-//         description: tour.description,
-//         photo: tour.photo,
-//         // add any other tour details you want
-//       },
-//       productDetails: {
-//         name: product.name,
-//         price: product.price,
-//         description: product.description,
-//         photo: product.photo,
-//         // add any other product details you want
-//       },
-//     });
-
-//     await cartItem.save();
-//     res.status(201).json({ message: 'Item added to cart successfully', cartItem });
-//   } catch (err) {
-//     res.status(500).json({ error: 'Failed to add item to cart', details: err.message });
-//   }
-// };
 const addToCart = async (req, res) => {
-  const { itemId, quantity } = req.body;
+  const { userId,itemId, quantity, itemType } = req.body;
 
   // Validate request body
-  if (!itemId || !quantity) {
-    return res.status(400).json({ error: 'TourId and quantity are required' });
+  if (!itemId || !quantity || !itemType) {
+    return res.status(400).json({ error: 'Item ID, quantity, and item type are required' });
   }
 
   try {
-    // Fetch tour details using tourId
-    let tour = await Tour.findById(itemId);
-
-    if (!tour) {
-      tour = await Product.findById(itemId);
+    // Fetch the item based on itemType
+    let item;
+    if (itemType === 'Tour') {
+      item = await Tour.findById(itemId); // Fetch from Tour model
+    } else if (itemType === 'Product') {
+      item = await Product.findById(itemId); // Fetch from Product model
+    } else {
+      return res.status(400).json({ error: 'Invalid item type' });
     }
 
-    // Create a cart item with tour details
+    // Create a new cart item
     const cartItem = new Cart({
+      userId,
       itemId,
+      itemType,
       quantity,
-      tourDetails: {
-        name: tour.name,
-        price: tour.price,
-        description: tour.description,
-        photo: tour.photo,
-        // add any other tour details you want
+      itemDetails: {
+        name: item.name,
+        price: item.price,
+        description: item.description,
+        photo: item.photo,
       },
     });
 
+    // Save the cart item
     await cartItem.save();
+
+    // Add the cart item to the user's cart array (if needed)
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $push: { cart: cartItem._id } }, // Add cart item to the user's cart array
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.status(201).json({ message: 'Item added to cart successfully', cartItem });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to add tour to cart', details: err.message });
+    res.status(500).json({ error: 'Failed to add item to cart', details: err.message });
   }
 };
+
 
 const getCartItems = async (req, res) => {
   try {
@@ -112,6 +83,27 @@ const getCartItems = async (req, res) => {
   }
 };
 
+const removeFromCart= async(req, res) => {
 
+  try {
+    const cartItems = await Cart.findByIdAndDelete(req.params.id);
+    if (!cartItems) {
+      return res.status(404).json({
+        status: "fail",
+        message: "cart not found",
+      });
+    }
 
-module.exports = {addToCart,getCartItems};
+    res.status(200).json({
+      status: "success",
+      message: "successfully deleted",
+    });
+  } catch (err) {
+    return res.status(404).json({
+      status: "fail",
+      message: err.message,
+    });
+  }
+};
+
+module.exports = {addToCart,getCartItems,removeFromCart};

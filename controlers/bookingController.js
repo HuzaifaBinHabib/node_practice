@@ -53,7 +53,7 @@ const getCheckoutSessionProduct = async (req, res) => {
       product.name,
       product.summary,
       product.price,
-      product.imageUrl || "https://example.com/default-product-image.jpg",
+      product.photo || "https://example.com/default-product-image.jpg",
       quantity,
       req,
       { userId, productId: req.params.id }
@@ -81,7 +81,7 @@ const getCheckoutSessionTour = async (req, res) => {
       tour.name,
       tour.summary,
       tour.price,
-      tour.imageUrl || "https://example.com/default-tour-image.jpg",
+      tour.photo || "https://example.com/default-tour-image.jpg",
       1,
       req,
       { userId, tourId: req.params.id }
@@ -95,45 +95,124 @@ const getCheckoutSessionTour = async (req, res) => {
 };
 
 // Cart Checkout Session
+// const getCheckoutSession = async (req, res) => {
+//   try {
+//     // Find the cart for the logged-in user
+
+//         if (!req.user || !req.user.id) {
+//           return res.status(401).json({ status: 'error', message: 'User is not authenticated' });
+//         }
+    
+//         const cart = await Cart.findOne({ userId: req.user.id });
+//         if (!cart) {
+//           return res.status(404).json({ status: 'error', message: 'Cart not found' });
+//         }
+    
+//         // Proceed with logic to create Stripe session...
+
+    
+//     // Check if it's a product or a tour and use appropriate details
+//     const line_items = [];
+
+//     if (cart.tourDetails.name) {
+//       line_items.push({
+//         price_data: {
+//           currency: 'usd',
+//           product_data: {
+//             name: cart.tourDetails.name,
+//             description: cart.tourDetails.description,
+//             images: [cart.tourDetails.photo || 'https://example.com/default-product-image.jpg'],
+//           },
+//           unit_amount: cart.tourDetails.price * 100,
+//         },
+//         quantity: cart.quantity,
+//       });
+//     } else if (cart.tourDetails.name) {
+//       line_items.push({
+//         price_data: {
+//           currency: 'usd',
+//           product_data: {
+//             name: cart.tourDetails.name,
+//             description: cart.tourDetails.description,
+//             images: [cart.tourDetails.photo || 'https://example.com/default-tour-image.jpg'],
+//           },
+//           unit_amount: cart.tourDetails.price * 100,
+//         },
+//         quantity: cart.quantity,
+//       });
+//     } else {
+//       return res.status(400).json({ status: 'error', message: 'No valid items in cart.' });
+//     }
+
+//     // Create Stripe session
+//     const session = await stripe.checkout.sessions.create({
+//       payment_method_types: ['card'],
+//       success_url: `${req.protocol}://${req.get('host')}/success`,
+//       cancel_url: `${req.protocol}://${req.get('host')}/cancel`,
+//       line_items,
+//       mode: 'payment',
+//     });
+
+//     res.status(200).json({ status: 'success', session });
+//   } catch (error) {
+//     console.error('Error in cart checkout session:', error);
+//     res.status(500).json({ status: 'error', message: error.message });
+//   }
+// };
 const getCheckoutSession = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ user: req.user?.id }).populate("items.product");
-
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ status: "error", message: "Cart is empty" });
+    
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ status: 'error', message: 'User is not authenticated' });
     }
 
-    const userId = req.user?.id || 'guest';
+    // Fetch cart items
+    const cartItems = await Cart.find({ userId: req.user.id })
+      .populate('itemId'); // Populate the itemId reference (either a Tour or Product)
 
-    const line_items = cart.items.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.product.name,
-          description: item.product.summary,
-          images: [item.product.imageUrl || "https://example.com/default-product-image.jpg"],
+    // Check if the cart has any items
+    if (!cartItems || cartItems.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'Cart is empty' });
+    }
+
+    // Prepare line items for Stripe checkout
+    const line_items = cartItems.map(cartItem => {
+      const item = cartItem.itemId;
+      return {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: cartItem.itemDetails.name,
+            description: cartItem.itemDetails.description,
+            images: [cartItem.itemDetails.photo || 'https://example.com/default-image.jpg'],
+          },
+          unit_amount: cartItem.itemDetails.price * 100, // Convert price to cents
         },
-        unit_amount: item.product.price * 100,
-      },
-      quantity: item.quantity,
-    }));
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      success_url: `${req.protocol}://${req.get("host")}/home/`,
-      cancel_url: `${req.protocol}://${req.get("host")}/home/`,
-      customer_email: req.user?.email || 'guest@example.com',
-      client_reference_id: userId,
-      line_items,
-      mode: "payment",
-      metadata: { userId },
+        quantity: cartItem.quantity,
+      };
     });
 
-    res.status(200).json({ status: "success", session });
+    if (line_items.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'No valid items in cart.' });
+    }
+
+    // Create the Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      success_url: `${req.protocol}://${req.get('host')}/success`,
+      cancel_url: `${req.protocol}://${req.get('host')}/cancel`,
+      line_items,
+      mode: 'payment',
+    });
+
+    res.status(200).json({ status: 'success', session });
   } catch (error) {
-    console.error("Error in cart checkout session:", error);
-    res.status(500).json({ status: "error", message: error.message });
+    console.error('Error in cart checkout session:', error);
+    res.status(500).json({ status: 'error', message: error.message });
   }
 };
+
+
+
 
 module.exports = { getCheckoutSessionProduct, getCheckoutSessionTour, getCheckoutSession };
